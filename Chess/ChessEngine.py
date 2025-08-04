@@ -9,7 +9,7 @@ class GameState():
         self.board = [
             ["bR","bN","bB","bQ","bK","bB","bN","bR"], #back rank pieces for black pov
             ["bp","bp","bp","bp","bp","bp","bp","bp"], #black pawn rank row
-             # Representing a blank space on the board?
+            # Representing a blank space on the board?
             ["--","--","--","--","--","--","--","--"],
             ["--", "--", "--", "--", "--", "--", "--", "--"],
             ["--", "--", "--", "--", "--", "--", "--", "--"],
