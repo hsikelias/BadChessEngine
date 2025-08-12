@@ -17,7 +17,6 @@ Loading images should be done only once, saving to memory only once. loading ima
 causes lag. 
 Initialize a global dictionary of images. This will be called exactly only once in the main.
 '''
-# future I can let the user chose the chess set they want to use.
 def loadImages():
     pieces = ['wp', 'wR', 'wN', 'wB', 'wK', 'wQ', 'bp', 'bR', 'bN', 'bB', 'bK', 'bQ',]
     for piece in pieces:
@@ -25,14 +24,16 @@ def loadImages():
         IMAGES[piece] = p.transform.scale(p.image.load("images/" + piece + ".png"), (SQ_SIZE, SQ_SIZE))
 
 '''
-Main drive for our code. Which will handle user input and upadting the graphics
+Main drive for our code. Which will handle user input and updating the graphics
 '''
 def main():
     p.init()
     screen = p.display.set_mode((WIDTH, HEIGHT))
     clock = p.time.Clock()
-    screen.fill(p.Color("white")) # not necessary cus we gon add other color later
+    screen.fill(p.Color("white"))
     gs = ChessEngine.GameState() #created a gamestate object
+    validMoves = gs.getValidMoves() # Get valid moves for current position
+    moveMade = False # Flag for when a move is made
     loadImages()
     running = True
     sqSelected = () # no square selected, keeps track of the last click of the user(tuple: (row, col))
@@ -42,6 +43,7 @@ def main():
         for e in p.event.get():
             if e.type == p.QUIT:
                 running = False
+            # Mouse clicks
             elif e.type == p.MOUSEBUTTONDOWN:
                 location = p.mouse.get_pos() # the x,y location fo the mouse.
                 col = location[0]//SQ_SIZE
@@ -57,9 +59,29 @@ def main():
                 if len(playerClicks) == 2: #after 2nd click
                     move = ChessEngine.Move(playerClicks[0], playerClicks[1], gs.board)
                     print(move.getChessNotation()) # Print move in chess notation
-                    gs.makeMove(move)
-                    sqSelected = () #resets user click
-                    playerClicks = [] # Clear clicks after move
+                    
+                    # Check if move is valid before making it
+                    for i in range(len(validMoves)):
+                        if move == validMoves[i]:
+                            gs.makeMove(validMoves[i])
+                            moveMade = True
+                            sqSelected = () #reset user selection
+                            playerClicks = [] # Clear clicks after move
+                            break
+                    
+                    if not moveMade:
+                        playerClicks = [sqSelected] # Keep the second click as first click for next attempt
+            
+            # Key presses
+            elif e.type == p.KEYDOWN:
+                if e.key == p.K_z: # Press 'z' to undo move
+                    gs.undoMove()
+                    moveMade = True
+
+        # If a move was made, recalculate valid moves
+        if moveMade:
+            validMoves = gs.getValidMoves()
+            moveMade = False
 
         drawGameState(screen, gs)
         clock.tick(MAX_FPS)
@@ -78,7 +100,6 @@ def drawGameState(screen, gs):
 draw the squares on the board. top left square is always light(both from white and blacks perspective)
 '''
 def drawBoard(screen):
-    # FIXED: Removed extra 'board' parameter that wasn't needed
     colors = [p.Color("#f0d5b4"), p.Color("#663817")]
     for r in range(DIMENSION):
         for c in range(DIMENSION):
