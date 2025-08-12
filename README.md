@@ -1,6 +1,6 @@
-# Chess Game in Python
+# Chess Engine in Python(Still under active development)
 
-A fully functional chess game built with Python and Pygame, featuring complete chess rules implementation, sound effects, and an intuitive graphical interface.
+A fully functional chess game built with Python and Pygame, featuring complete chess rules implementation, sound effects, and a standard graphical interface.
 
 ## Features
 
@@ -16,8 +16,6 @@ A fully functional chess game built with Python and Pygame, featuring complete c
 
 ## Screenshots
 
-*Add your game screenshots here*
-
 ## Installation
 
 ### Prerequisites
@@ -27,8 +25,8 @@ A fully functional chess game built with Python and Pygame, featuring complete c
 ### Setup
 1. Clone this repository:
 ```bash
-git clone https://github.com/yourusername/chess-game.git
-cd chess-game
+git clone https://github.com/hsikelias/BadChessEngine.git
+cd BadChessEngine
 ```
 
 2. Install Pygame:
@@ -78,7 +76,7 @@ Chess/
 
 The game includes audio feedback for:
 - Regular moves
-- Rook captures (special sacrifice sound)
+- Rook captures (special sacrifice sound ft.GothamChess)
 - Check warnings
 - Checkmate/stalemate notifications
 - Castling moves
