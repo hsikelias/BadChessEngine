@@ -1,7 +1,34 @@
-"""
+def draw_footer(self):
+    """Draw bottom status bar"""
+    footer_rect = p.Rect(0, WINDOW_HEIGHT - FOOTER_HEIGHT, WINDOW_WIDTH, FOOTER_HEIGHT)
+    p.draw.rect(self.screen, COLORS['bg_secondary'], footer_rect)
+    p.draw.line(self.screen, COLORS['border'], (0, WINDOW_HEIGHT - FOOTER_HEIGHT),
+                (WINDOW_WIDTH, WINDOW_HEIGHT - FOOTER_HEIGHT))
+
+    # Status message
+    status_msg = "Ready to play"
+    if self.gs.checkMate:
+        status_msg = "Game Over - Checkmate!"
+    elif self.gs.staleMate:
+        status_msg = "Game Over - Stalemate!"
+    elif self.gs.inCheck():
+        status_msg = "Check!"
+    elif self.last_move:
+        status_msg = f"Last move: {self.last_move.getChessNotation()}"
+
+    status_surf = self.font_small.render(status_msg, True, COLORS['text_secondary'])
+    self.screen.blit(status_surf, (20, WINDOW_HEIGHT - 25))
+
+    # Keyboard shortcuts hint
+    shortcuts = "Ctrl+N: New | Ctrl+Z: Undo | Ctrl+S: Save | Ctrl+F: Flip"
+    shortcuts_surf = self.font_tiny.render(shortcuts, True, COLORS['text_muted'])
+    shortcuts_x = WINDOW_WIDTH - shortcuts_surf.get_width() - 20
+    self.screen.blit(shortcuts_surf, (shortcuts_x, WINDOW_HEIGHT - 25))
+    """
 Chess.com Style Desktop Chess Game
 Clean, modern UI inspired by chess.com
 """
+
 
 import pygame as p
 import os
@@ -9,7 +36,8 @@ import sys
 import json
 import time
 from datetime import datetime
-from Chess import ChessEngine
+# Import your fixed ChessEngine
+import ChessEngine
 
 # Initialize pygame mixer FIRST
 p.mixer.pre_init(frequency=44100, size=-16, channels=2, buffer=512)
@@ -32,34 +60,34 @@ MAX_FPS = 60
 # Chess.com inspired color palette
 COLORS = {
     # Board colors (chess.com green theme)
-    'light_square': p.Color("#f0d9b4"),    # Light wood
-    'dark_square': p.Color("#b58863"),     # Dark wood
+    'light_square': p.Color("#f0d9b4"),  # Light wood
+    'dark_square': p.Color("#b58863"),  # Dark wood
     'light_highlight': p.Color("#ffff7f"),  # Yellow highlight
-    'dark_highlight': p.Color("#ffdd7f"),   # Darker yellow
+    'dark_highlight': p.Color("#ffdd7f"),  # Darker yellow
     'last_move_light': p.Color("#cdd26a"),  # Last move on light
-    'last_move_dark': p.Color("#aaa23a"),   # Last move on dark
-    'check_square': p.Color("#ff6b6b"),     # Red for check
-    'valid_move': p.Color("#00aa00"),       # Green dots for valid moves
-    'selected': p.Color("#ffff00"),         # Selected piece highlight
+    'last_move_dark': p.Color("#aaa23a"),  # Last move on dark
+    'check_square': p.Color("#ff6b6b"),  # Red for check
+    'valid_move': p.Color("#00aa00"),  # Green dots for valid moves
+    'selected': p.Color("#ffff00"),  # Selected piece highlight
 
     # UI colors (chess.com style)
-    'bg_primary': p.Color("#312e2b"),       # Main background (dark brown)
-    'bg_secondary': p.Color("#262421"),     # Darker panels
-    'bg_card': p.Color("#3c3936"),          # Card backgrounds
-    'accent': p.Color("#81b64c"),           # Chess.com green accent
-    'accent_hover': p.Color("#9bcc5f"),     # Lighter green hover
-    'accent_active': p.Color("#6fa03f"),    # Darker green active
+    'bg_primary': p.Color("#312e2b"),  # Main background (dark brown)
+    'bg_secondary': p.Color("#262421"),  # Darker panels
+    'bg_card': p.Color("#3c3936"),  # Card backgrounds
+    'accent': p.Color("#81b64c"),  # Chess.com green accent
+    'accent_hover': p.Color("#9bcc5f"),  # Lighter green hover
+    'accent_active': p.Color("#6fa03f"),  # Darker green active
 
     # Text colors
-    'text_primary': p.Color("#ffffff"),     # White text
-    'text_secondary': p.Color("#b9b9b9"),   # Gray text
-    'text_muted': p.Color("#8d8d8d"),       # Muted text
-    'text_success': p.Color("#81b64c"),     # Success text
-    'text_danger': p.Color("#ff6b6b"),      # Error/danger text
+    'text_primary': p.Color("#ffffff"),  # White text
+    'text_secondary': p.Color("#b9b9b9"),  # Gray text
+    'text_muted': p.Color("#8d8d8d"),  # Muted text
+    'text_success': p.Color("#81b64c"),  # Success text
+    'text_danger': p.Color("#ff6b6b"),  # Error/danger text
 
     # Border and divider colors
-    'border': p.Color("#4a4744"),           # Subtle borders
-    'divider': p.Color("#3c3936"),          # Section dividers
+    'border': p.Color("#4a4744"),  # Subtle borders
+    'divider': p.Color("#3c3936"),  # Section dividers
 }
 
 IMAGES = {}
@@ -137,11 +165,13 @@ class ChessComGame:
         self.player_clicks = []
         self.last_move = None
         self.show_valid_moves = True  # Chess.com style move hints
+        self.board_flipped = False  # Board orientation
 
         # Game management
         self.game_manager = GameManager()
         self.game_list_scroll = 0
         self.selected_game_id = None
+        self.hovered_game_index = -1
 
         # Animation state
         self.animation_time = 0
@@ -296,7 +326,7 @@ class ChessComGame:
                 pass  # Silent fallback
 
     def create_buttons(self):
-        """Create chess.com style buttons"""
+        """Create simplified buttons"""
         buttons = []
 
         # Main action buttons (top of sidebar)
@@ -309,7 +339,7 @@ class ChessComGame:
             ("🆕 New Game", self.new_game, COLORS['accent']),
             ("↶ Undo Move", self.undo_move, COLORS['bg_card']),
             ("💾 Save Game", self.save_current_game, COLORS['bg_card']),
-            ("📋 Export PGN", self.export_pgn, COLORS['bg_card']),
+            ("🔄 Flip Board", self.flip_board, COLORS['bg_card']),
         ]
 
         for text, callback, color in main_buttons:
@@ -323,25 +353,16 @@ class ChessComGame:
             })
             button_y += button_height + 10
 
-        # Utility buttons (smaller, in a row)
+        # Utility button
         util_y = button_y + 20
-        util_width = (button_width - 10) // 2
-
-        util_buttons = [
-            ("⚙️ Settings", self.show_settings, COLORS['bg_secondary']),
-            ("🗑️ Clear All", self.clear_games, COLORS['bg_secondary']),
-        ]
-
-        for i, (text, callback, color) in enumerate(util_buttons):
-            x_pos = button_x + (i * (util_width + 10))
-            buttons.append({
-                'rect': p.Rect(x_pos, util_y, util_width, 35),
-                'text': text,
-                'callback': callback,
-                'color': color,
-                'hover_color': COLORS['border'],
-                'hovered': False
-            })
+        buttons.append({
+            'rect': p.Rect(button_x, util_y, button_width, 35),
+            'text': "🗑️ Clear All Games",
+            'callback': self.clear_games,
+            'color': COLORS['bg_secondary'],
+            'hover_color': COLORS['border'],
+            'hovered': False
+        })
 
         self.buttons = buttons
         return buttons
@@ -370,6 +391,8 @@ class ChessComGame:
                     self.new_game()
                 elif event.key == p.K_s and p.key.get_pressed()[p.K_LCTRL]:
                     self.save_current_game()
+                elif event.key == p.K_f and p.key.get_pressed()[p.K_LCTRL]:
+                    self.flip_board()
 
         return True
 
@@ -390,6 +413,11 @@ class ChessComGame:
         if board_rect.collidepoint(pos):
             col = pos[0] // SQ_SIZE
             row = (pos[1] - HEADER_HEIGHT) // SQ_SIZE
+
+            # Flip coordinates if board is flipped
+            if self.board_flipped:
+                row = 7 - row
+                col = 7 - col
 
             if 0 <= row < 8 and 0 <= col < 8:  # Valid board position
                 if self.sq_selected == (row, col):
@@ -421,8 +449,9 @@ class ChessComGame:
         if 0 <= game_index < len(games):
             game = games[game_index]
             self.selected_game_id = game['id']
-            # Could implement game loading here
-            print(f"Selected game from {game['date']}")
+            # Load the selected game
+            self.load_game(game)
+            print(f"Loaded game from {game['date']}")
 
         return True
 
@@ -430,6 +459,18 @@ class ChessComGame:
         """Handle mouse motion for hover effects"""
         for button in self.buttons:
             button['hovered'] = button['rect'].collidepoint(pos)
+
+        # Add hover effect for game list items
+        self.hovered_game_index = -1
+        list_area = self.get_game_list_area()
+        if list_area.collidepoint(pos):
+            relative_y = pos[1] - list_area.top
+            if relative_y > 45:  # Below header and instruction
+                item_height = 50
+                game_index = ((relative_y - 45) // item_height) + self.game_list_scroll
+                games = self.game_manager.get_games()
+                if 0 <= game_index < len(games):
+                    self.hovered_game_index = game_index
 
     def attempt_move(self):
         """Attempt to make a chess move"""
@@ -461,7 +502,7 @@ class ChessComGame:
         """Play move sound effect"""
         if self.gs.checkMate:
             sound = SOUNDS.get('checkmate') or SOUNDS.get('game_end')
-        elif self.gs.inCheck:
+        elif self.gs.inCheck():
             sound = SOUNDS.get('check')
         elif move.isCastleMove:
             sound = SOUNDS.get('castle')
@@ -506,7 +547,13 @@ class ChessComGame:
             self.player_clicks = []
             self.last_move = self.gs.moveLog[-1] if self.gs.moveLog else None
 
-    def save_current_game(self):
+    def flip_board(self):
+        """Flip the board orientation"""
+        self.board_flipped = not self.board_flipped
+        # Clear selection when flipping
+        self.sq_selected = ()
+        self.player_clicks = []
+        print(f"🔄 Board flipped - {'Black' if self.board_flipped else 'White'} perspective")
         """Save the current game manually"""
         if len(self.gs.moveLog) > 0:
             result = self.get_game_result()
@@ -516,7 +563,46 @@ class ChessComGame:
         else:
             print("⚠ No moves to save")
 
-    def export_pgn(self):
+    def load_game(self, game_data):
+        """Load a saved game"""
+        try:
+            # Reset to new game state
+            self.gs = ChessEngine.GameState()
+
+            # Replay all moves from the saved game
+            for move_notation in game_data['moves']:
+                # Find the corresponding move object
+                valid_moves = self.gs.getValidMoves()
+                move_found = False
+
+                for move in valid_moves:
+                    if move.getChessNotation() == move_notation:
+                        self.gs.makeMove(move)
+                        self.last_move = move
+                        move_found = True
+                        break
+
+                if not move_found:
+                    print(f"⚠ Could not replay move: {move_notation}")
+                    break
+
+            # Update game state
+            self.valid_moves = self.gs.getValidMoves()
+            self.sq_selected = ()
+            self.player_clicks = []
+            self.move_made = True
+
+            # Update game start time (approximate)
+            self.game_start_time = time.time()
+
+            print(f"✓ Loaded game with {len(game_data['moves'])} moves")
+
+        except Exception as e:
+            print(f"✗ Failed to load game: {e}")
+            # Reset to new game if loading fails
+            self.new_game()
+
+    def save_current_game(self):
         """Export current game as PGN"""
         if not self.gs.moveLog:
             print("⚠ No game to export")
@@ -536,7 +622,7 @@ class ChessComGame:
         move_text = ""
         for i, move in enumerate(self.gs.moveLog):
             if i % 2 == 0:
-                move_text += f"{i//2 + 1}. {move.getChessNotation()} "
+                move_text += f"{i // 2 + 1}. {move.getChessNotation()} "
             else:
                 move_text += f"{move.getChessNotation()} "
 
@@ -602,7 +688,7 @@ class ChessComGame:
         """Draw top header bar"""
         header_rect = p.Rect(0, 0, WINDOW_WIDTH, HEADER_HEIGHT)
         p.draw.rect(self.screen, COLORS['bg_secondary'], header_rect)
-        p.draw.line(self.screen, COLORS['border'], (0, HEADER_HEIGHT-1), (WINDOW_WIDTH, HEADER_HEIGHT-1))
+        p.draw.line(self.screen, COLORS['border'], (0, HEADER_HEIGHT - 1), (WINDOW_WIDTH, HEADER_HEIGHT - 1))
 
         # Title
         title = self.font_header.render("♔ Chess Desktop", True, COLORS['text_primary'])
@@ -615,7 +701,7 @@ class ChessComGame:
             status = f"Checkmate! {winner} wins! 🏆"
         elif self.gs.staleMate:
             status = "Stalemate - Draw! 🤝"
-        elif self.gs.inCheck:
+        elif self.gs.inCheck():
             status += " - Check! ⚠️"
 
         status_text = self.font_small.render(status, True, COLORS['text_secondary'])
@@ -628,17 +714,21 @@ class ChessComGame:
 
         for row in range(8):
             for col in range(8):
+                # Get actual board position (handle flipping)
+                display_row = 7 - row if self.board_flipped else row
+                display_col = 7 - col if self.board_flipped else col
+
                 # Determine square color
-                is_light = (row + col) % 2 == 0
+                is_light = (display_row + display_col) % 2 == 0
                 base_color = COLORS['light_square'] if is_light else COLORS['dark_square']
 
-                # Check for highlights
+                # Check for highlights (using actual board coordinates)
                 square_pos = (row, col)
 
                 # Last move highlight
                 if (self.last_move and
-                    (square_pos == (self.last_move.startRow, self.last_move.startCol) or
-                     square_pos == (self.last_move.endRow, self.last_move.endCol))):
+                        (square_pos == (self.last_move.startRow, self.last_move.startCol) or
+                         square_pos == (self.last_move.endRow, self.last_move.endCol))):
                     color = COLORS['last_move_light'] if is_light else COLORS['last_move_dark']
 
                 # Selected square highlight
@@ -646,15 +736,15 @@ class ChessComGame:
                     color = COLORS['light_highlight'] if is_light else COLORS['dark_highlight']
 
                 # Check highlight
-                elif (self.gs.inCheck and
+                elif (self.gs.inCheck() and
                       square_pos == (self.gs.whiteKingLocation if self.gs.whiteToMove else self.gs.blackKingLocation)):
                     color = COLORS['check_square']
 
                 else:
                     color = base_color
 
-                # Draw square
-                rect = p.Rect(col * SQ_SIZE, board_y + row * SQ_SIZE, SQ_SIZE, SQ_SIZE)
+                # Draw square (using display coordinates for position)
+                rect = p.Rect(display_col * SQ_SIZE, board_y + display_row * SQ_SIZE, SQ_SIZE, SQ_SIZE)
                 p.draw.rect(self.screen, color, rect)
 
                 # Animation effect for recent moves
@@ -673,16 +763,18 @@ class ChessComGame:
         # Draw coordinates (chess.com style)
         coord_font = p.font.Font(None, 20)
         for i in range(8):
+            display_i = 7 - i if self.board_flipped else i
+
             # Files (a-h) at bottom
-            file_char = chr(ord('a') + i)
+            file_char = chr(ord('a') + (7 - i if self.board_flipped else i))
             file_color = COLORS['text_muted']
             file_text = coord_font.render(file_char, True, file_color)
-            self.screen.blit(file_text, (i * SQ_SIZE + SQ_SIZE - 15, board_y + BOARD_SIZE - 18))
+            self.screen.blit(file_text, (display_i * SQ_SIZE + SQ_SIZE - 15, board_y + BOARD_SIZE - 18))
 
             # Ranks (1-8) on left
-            rank_char = str(8 - i)
+            rank_char = str(i + 1 if self.board_flipped else 8 - i)
             rank_text = coord_font.render(rank_char, True, file_color)
-            self.screen.blit(rank_text, (5, board_y + i * SQ_SIZE + 5))
+            self.screen.blit(rank_text, (5, board_y + display_i * SQ_SIZE + 5))
 
     def draw_pieces(self):
         """Draw chess pieces"""
@@ -692,7 +784,11 @@ class ChessComGame:
             for col in range(8):
                 piece = self.gs.board[row][col]
                 if piece != "--":
-                    piece_rect = p.Rect(col * SQ_SIZE, board_y + row * SQ_SIZE, SQ_SIZE, SQ_SIZE)
+                    # Handle board flipping for piece display
+                    display_row = 7 - row if self.board_flipped else row
+                    display_col = 7 - col if self.board_flipped else col
+
+                    piece_rect = p.Rect(display_col * SQ_SIZE, board_y + display_row * SQ_SIZE, SQ_SIZE, SQ_SIZE)
                     self.screen.blit(IMAGES[piece], piece_rect)
 
     def draw_highlights(self):
@@ -705,10 +801,14 @@ class ChessComGame:
         # Show valid moves as dots/circles
         for move in self.valid_moves:
             if (move.startRow == self.sq_selected[0] and
-                move.startCol == self.sq_selected[1]):
+                    move.startCol == self.sq_selected[1]):
 
-                center_x = move.endCol * SQ_SIZE + SQ_SIZE // 2
-                center_y = board_y + move.endRow * SQ_SIZE + SQ_SIZE // 2
+                # Handle board flipping for move highlights
+                display_row = 7 - move.endRow if self.board_flipped else move.endRow
+                display_col = 7 - move.endCol if self.board_flipped else move.endCol
+
+                center_x = display_col * SQ_SIZE + SQ_SIZE // 2
+                center_y = board_y + display_row * SQ_SIZE + SQ_SIZE // 2
 
                 # Different styles for different move types
                 if move.pieceCaptured != "--":
@@ -804,16 +904,24 @@ class ChessComGame:
             self.screen.blit(no_games, no_games_rect)
             return
 
+        # Instructions
+        instruction_text = "Click any game to load it"
+        instruction_surf = self.font_tiny.render(instruction_text, True, COLORS['text_muted'])
+        instruction_x = list_area.left + 15
+        instruction_y = header_y + 20
+        self.screen.blit(instruction_surf, (instruction_x, instruction_y))
+
         # Scrollable game list
-        list_start_y = header_y + 35
+        list_start_y = header_y + 45  # Adjusted for instruction text
         item_height = 50
-        visible_items = (list_area.height - 45) // item_height
+        visible_items = (list_area.height - 55) // item_height  # Adjusted for instruction
 
         start_idx = self.game_list_scroll
         end_idx = min(start_idx + visible_items, len(games))
 
         for i, game in enumerate(games[start_idx:end_idx]):
             item_y = list_start_y + (i * item_height)
+            actual_index = start_idx + i
 
             # Item background
             item_rect = p.Rect(list_area.left + 5, item_y, list_area.width - 10, item_height - 2)
@@ -821,6 +929,10 @@ class ChessComGame:
             # Highlight selected game
             if self.selected_game_id == game['id']:
                 p.draw.rect(self.screen, COLORS['accent'], item_rect)
+                text_color = COLORS['text_primary']
+            elif self.hovered_game_index == actual_index:
+                # Hover effect
+                p.draw.rect(self.screen, COLORS['accent_hover'], item_rect)
                 text_color = COLORS['text_primary']
             else:
                 p.draw.rect(self.screen, COLORS['bg_secondary'], item_rect)
@@ -855,7 +967,8 @@ class ChessComGame:
         """Draw bottom status bar"""
         footer_rect = p.Rect(0, WINDOW_HEIGHT - FOOTER_HEIGHT, WINDOW_WIDTH, FOOTER_HEIGHT)
         p.draw.rect(self.screen, COLORS['bg_secondary'], footer_rect)
-        p.draw.line(self.screen, COLORS['border'], (0, WINDOW_HEIGHT - FOOTER_HEIGHT), (WINDOW_WIDTH, WINDOW_HEIGHT - FOOTER_HEIGHT))
+        p.draw.line(self.screen, COLORS['border'], (0, WINDOW_HEIGHT - FOOTER_HEIGHT),
+                    (WINDOW_WIDTH, WINDOW_HEIGHT - FOOTER_HEIGHT))
 
         # Status message
         status_msg = "Ready to play"
@@ -863,7 +976,7 @@ class ChessComGame:
             status_msg = "Game Over - Checkmate!"
         elif self.gs.staleMate:
             status_msg = "Game Over - Stalemate!"
-        elif self.gs.inCheck:
+        elif self.gs.inCheck():
             status_msg = "Check!"
         elif self.last_move:
             status_msg = f"Last move: {self.last_move.getChessNotation()}"

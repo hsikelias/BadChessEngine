@@ -20,7 +20,6 @@ class GameState():
         self.blackKingLocation = (0, 4)
         self.checkMate = False
         self.staleMate = False
-        self.inCheck = False
 
         self.currentCastlingRight = CastleRights(True, True, True, True)
         self.castleRightsLog = [CastleRights(True, True, True, True)]
@@ -125,13 +124,52 @@ class GameState():
                     self.currentCastlingRight.bks = False
 
     def getValidMoves(self):
+        """Get all valid moves (accounting for check)"""
         moves = self.getAllPossibleMoves()
+
+        # Add castling moves before filtering for check
+        if self.whiteToMove:
+            self.getCastleMoves(self.whiteKingLocation[0], self.whiteKingLocation[1], moves)
+        else:
+            self.getCastleMoves(self.blackKingLocation[0], self.blackKingLocation[1], moves)
+
+        # Remove moves that put/leave the king in check
+        for i in range(len(moves) - 1, -1, -1):
+            self.makeMove(moves[i])
+            self.whiteToMove = not self.whiteToMove
+            if self.inCheck():
+                moves.remove(moves[i])
+            self.whiteToMove = not self.whiteToMove
+            self.undoMove()
+
         if len(moves) == 0:
-            if self.inCheck:
+            if self.inCheck():
                 self.checkMate = True
             else:
                 self.staleMate = True
+        else:
+            self.checkMate = False
+            self.staleMate = False
+
         return moves
+
+    def inCheck(self):
+        """Check if current player is in check"""
+        if self.whiteToMove:
+            return self.squareUnderAttack(self.whiteKingLocation[0], self.whiteKingLocation[1])
+        else:
+            return self.squareUnderAttack(self.blackKingLocation[0], self.blackKingLocation[1])
+
+    def squareUnderAttack(self, r, c):
+        """Check if square (r,c) is under attack by enemy"""
+        self.whiteToMove = not self.whiteToMove  # Switch to opponent's turn
+        oppMoves = self.getAllPossibleMoves()
+        self.whiteToMove = not self.whiteToMove  # Switch back
+
+        for move in oppMoves:
+            if move.endRow == r and move.endCol == c:
+                return True
+        return False
 
     def getAllPossibleMoves(self):
         moves = []
@@ -154,7 +192,140 @@ class GameState():
                         self.getKingMoves(r, c, moves)
         return moves
 
-    # Simplified move generators (kept same as before)...
+    def getPawnMoves(self, r, c, moves):
+        """Get all pawn moves"""
+        if self.whiteToMove:  # White pawn moves
+            if self.board[r-1][c] == "--":  # 1 square advance
+                moves.append(Move((r, c), (r-1, c), self.board))
+                if r == 6 and self.board[r-2][c] == "--":  # 2 square advance from starting position
+                    moves.append(Move((r, c), (r-2, c), self.board))
+
+            # Captures
+            if c-1 >= 0:  # Capture left
+                if self.board[r-1][c-1][0] == 'b':
+                    moves.append(Move((r, c), (r-1, c-1), self.board))
+                elif (r-1, c-1) == self.enpassantPossible:
+                    moves.append(Move((r, c), (r-1, c-1), self.board, isEnpassantMove=True))
+
+            if c+1 <= 7:  # Capture right
+                if self.board[r-1][c+1][0] == 'b':
+                    moves.append(Move((r, c), (r-1, c+1), self.board))
+                elif (r-1, c+1) == self.enpassantPossible:
+                    moves.append(Move((r, c), (r-1, c+1), self.board, isEnpassantMove=True))
+
+        else:  # Black pawn moves
+            if self.board[r+1][c] == "--":  # 1 square advance
+                moves.append(Move((r, c), (r+1, c), self.board))
+                if r == 1 and self.board[r+2][c] == "--":  # 2 square advance from starting position
+                    moves.append(Move((r, c), (r+2, c), self.board))
+
+            # Captures
+            if c-1 >= 0:  # Capture left
+                if self.board[r+1][c-1][0] == 'w':
+                    moves.append(Move((r, c), (r+1, c-1), self.board))
+                elif (r+1, c-1) == self.enpassantPossible:
+                    moves.append(Move((r, c), (r+1, c-1), self.board, isEnpassantMove=True))
+
+            if c+1 <= 7:  # Capture right
+                if self.board[r+1][c+1][0] == 'w':
+                    moves.append(Move((r, c), (r+1, c+1), self.board))
+                elif (r+1, c+1) == self.enpassantPossible:
+                    moves.append(Move((r, c), (r+1, c+1), self.board, isEnpassantMove=True))
+
+    def getRookMoves(self, r, c, moves):
+        """Get all rook moves"""
+        directions = ((-1, 0), (0, -1), (1, 0), (0, 1))  # up, left, down, right
+        enemyColor = "b" if self.whiteToMove else "w"
+
+        for d in directions:
+            for i in range(1, 8):
+                endRow = r + d[0] * i
+                endCol = c + d[1] * i
+                if 0 <= endRow < 8 and 0 <= endCol < 8:  # On board
+                    endPiece = self.board[endRow][endCol]
+                    if endPiece == "--":  # Empty space
+                        moves.append(Move((r, c), (endRow, endCol), self.board))
+                    elif endPiece[0] == enemyColor:  # Enemy piece
+                        moves.append(Move((r, c), (endRow, endCol), self.board))
+                        break
+                    else:  # Friendly piece
+                        break
+                else:  # Off board
+                    break
+
+    def getKnightMoves(self, r, c, moves):
+        """Get all knight moves"""
+        knightMoves = ((-2, -1), (-2, 1), (-1, -2), (-1, 2), (1, -2), (1, 2), (2, -1), (2, 1))
+        allyColor = "w" if self.whiteToMove else "b"
+
+        for m in knightMoves:
+            endRow = r + m[0]
+            endCol = c + m[1]
+            if 0 <= endRow < 8 and 0 <= endCol < 8:
+                endPiece = self.board[endRow][endCol]
+                if endPiece[0] != allyColor:  # Not ally piece (empty or enemy)
+                    moves.append(Move((r, c), (endRow, endCol), self.board))
+
+    def getBishopMoves(self, r, c, moves):
+        """Get all bishop moves"""
+        directions = ((-1, -1), (-1, 1), (1, -1), (1, 1))  # diagonals
+        enemyColor = "b" if self.whiteToMove else "w"
+
+        for d in directions:
+            for i in range(1, 8):
+                endRow = r + d[0] * i
+                endCol = c + d[1] * i
+                if 0 <= endRow < 8 and 0 <= endCol < 8:  # On board
+                    endPiece = self.board[endRow][endCol]
+                    if endPiece == "--":  # Empty space
+                        moves.append(Move((r, c), (endRow, endCol), self.board))
+                    elif endPiece[0] == enemyColor:  # Enemy piece
+                        moves.append(Move((r, c), (endRow, endCol), self.board))
+                        break
+                    else:  # Friendly piece
+                        break
+                else:  # Off board
+                    break
+
+    def getQueenMoves(self, r, c, moves):
+        """Get all queen moves (combination of rook and bishop)"""
+        self.getRookMoves(r, c, moves)
+        self.getBishopMoves(r, c, moves)
+
+    def getKingMoves(self, r, c, moves):
+        """Get all king moves"""
+        kingMoves = ((-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1))
+        allyColor = "w" if self.whiteToMove else "b"
+
+        for i in range(8):
+            endRow = r + kingMoves[i][0]
+            endCol = c + kingMoves[i][1]
+            if 0 <= endRow < 8 and 0 <= endCol < 8:
+                endPiece = self.board[endRow][endCol]
+                if endPiece[0] != allyColor:  # Not ally piece
+                    moves.append(Move((r, c), (endRow, endCol), self.board))
+
+    def getCastleMoves(self, r, c, moves):
+        """Get valid castle moves"""
+        if self.squareUnderAttack(r, c):
+            return  # Can't castle when in check
+
+        if (self.whiteToMove and self.currentCastlingRight.wks) or (not self.whiteToMove and self.currentCastlingRight.bks):
+            self.getKingsideCastleMoves(r, c, moves)
+        if (self.whiteToMove and self.currentCastlingRight.wqs) or (not self.whiteToMove and self.currentCastlingRight.bqs):
+            self.getQueensideCastleMoves(r, c, moves)
+
+    def getKingsideCastleMoves(self, r, c, moves):
+        """Get kingside castle moves"""
+        if self.board[r][c+1] == '--' and self.board[r][c+2] == '--':
+            if not self.squareUnderAttack(r, c+1) and not self.squareUnderAttack(r, c+2):
+                moves.append(Move((r, c), (r, c+2), self.board, isCastleMove=True))
+
+    def getQueensideCastleMoves(self, r, c, moves):
+        """Get queenside castle moves"""
+        if self.board[r][c-1] == '--' and self.board[r][c-2] == '--' and self.board[r][c-3] == '--':
+            if not self.squareUnderAttack(r, c-1) and not self.squareUnderAttack(r, c-2):
+                moves.append(Move((r, c), (r, c-2), self.board, isCastleMove=True))
 
     def get_move_from_notation(self, notation):
         """
