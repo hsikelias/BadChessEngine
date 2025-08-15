@@ -5,19 +5,6 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="9e2c213a-b01d-405b-8170-8fefede3df3c" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/Chess/sounds/bishop_sacrifice.wav" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Chess/sounds/capture.wav" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Chess/sounds/castle.wav" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Chess/sounds/check.wav" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Chess/sounds/checkmate.wav" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Chess/sounds/enpassant.wav" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Chess/sounds/knight_sacrifice.wav" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Chess/sounds/move.wav" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Chess/sounds/promotion.wav" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Chess/sounds/queen_sacrifice.wav" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Chess/sounds/rook_sacrifice.wav" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Chess/sounds/stalemate.wav" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/soundsystem.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chess/ChessEngine.py" beforeDir="false" afterPath="$PROJECT_DIR$/Chess/ChessEngine.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chess/ChessMain.py" beforeDir="false" afterPath="$PROJECT_DIR$/Chess/ChessMain.py" afterDir="false" />
@@ -134,12 +121,12 @@
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/Chess/ChessMain.py</url>
-          <line>4</line>
+          <line>5</line>
           <option name="timeStamp" value="1" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/Chess/ChessMain.py</url>
-          <line>215</line>
+          <line>920</line>
           <option name="timeStamp" value="2" />
         </line-breakpoint>
       </breakpoints>
